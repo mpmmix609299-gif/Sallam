@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11111b">
+  <title>چت خصوصی</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:#11111b;color:#f4f1fb;font-family:Tahoma,Arial,sans-serif;display:grid;place-items:center;padding:18px}
+    .app{width:min(100%,620px);height:min(780px,92vh);min-height:520px;background:#1a1926;border:1px solid #343044;border-radius:22px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 70px #0007}
+    header{padding:20px 22px;border-bottom:1px solid #343044;display:flex;justify-content:space-between;align-items:center}
+    h1{font-size:19px;margin:0}.sub{font-size:12px;color:#aaa4bc;margin-top:6px}.secure{font-size:12px;color:#9de2bd}
+    #login{margin:auto;width:min(86%,360px);text-align:center} #login h2{font-size:21px}
+    input,button{font:inherit;border:0;border-radius:12px;padding:14px}
+    #password{width:100%;background:#292638;color:white;border:1px solid #454057;text-align:center;letter-spacing:5px;margin:14px 0}
+    button{background:#8b72e8;color:white;font-weight:bold;cursor:pointer}button:disabled{opacity:.5}
+    #error{color:#ff9a9a;font-size:13px;min-height:20px}
+    #chat{display:none;flex:1;min-height:0;flex-direction:column}
+    #notice{padding:9px 16px;text-align:center;font-size:12px;color:#c4bdd7;background:#242235}
+    #messages{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+    .msg{max-width:85%;background:#302c43;border-radius:15px 15px 4px 15px;padding:11px 13px;align-self:flex-start;overflow-wrap:anywhere}
+    .time{font-size:10px;color:#b9b2ca;margin-top:6px}
+    .system{align-self:center;color:#b9b2ca;font-size:12px}
+    form{display:flex;gap:9px;padding:14px;border-top:1px solid #343044}
+    #message{min-width:0;flex:1;background:#292638;color:white;border:1px solid #454057}
+    #send{padding-inline:20px}
+    .foot{font-size:11px;color:#9992ab;text-align:center;padding:0 12px 12px}
+    @media(max-width:480px){.app{height:94vh;min-height:480px}header{padding:16px}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header><div><h1>چت خصوصی</h1><div class="sub">گفت‌وگوی زنده و بدون تاریخچه</div></div><div class="secure">● اتصال خصوصی</div></header>
+    <section id="login">
+      <h2>ورود به چت</h2>
+      <p class="sub">رمز مشترک را وارد کنید</p>
+      <input id="password" type="password" inputmode="numeric" autocomplete="current-password" placeholder="رمز عبور">
+      <button id="enter" style="width:100%">ورود</button>
+      <div id="error"></div>
+    </section>
+    <section id="chat">
+      <div id="notice">پیام‌ها فقط برای افراد متصل نمایش داده می‌شوند و ذخیره نمی‌شوند.</div>
+      <div id="messages" aria-live="polite"></div>
+      <form id="form"><input id="message" maxlength="1000" autocomplete="off" placeholder="پیام خود را بنویسید…" required><button id="send">ارسال</button></form>
+      <div class="foot">با خروج یا قطع اتصال، پیام‌های قبلی برای ورود بعدی نگه‌داری نمی‌شوند.</div>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const login = document.getElementById("login");
+    const chat = document.getElementById("chat");
+    const password = document.getElementById("password");
+    const error = document.getElementById("error");
+    const messages = document.getElementById("messages");
+    let socket;
+
+    function addMessage(text, time, system=false) {
+      const item = document.createElement("div");
+      item.className = system ? "system" : "msg";
+      item.textContent = text;
+      if (time && !system) {
+        const stamp = document.createElement("div");
+        stamp.className = "time";
+        stamp.textContent = time;
+        item.appendChild(stamp);
+      }
+      messages.appendChild(item);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function enterChat() {
+      error.textContent = "";
+      socket = io({ auth: { password: password.value } });
+      socket.on("connect", () => {
+        login.style.display = "none";
+        chat.style.display = "flex";
+        document.getElementById("message").focus();
+      });
+      socket.on("connect_error", (err) => {
+        error.textContent = err.message || "ورود ناموفق بود.";
+        socket.disconnect();
+      });
+      socket.on("system", (text) => addMessage(text, null, true));
+      socket.on("chat message", (data) => addMessage(data.text, data.time));
+    }
+
+    document.getElementById("enter").addEventListener("click", enterChat);
+    password.addEventListener("keydown", e => { if (e.key === "Enter") enterChat(); });
+    document.getElementById("form").addEventListener("submit", e => {
+      e.preventDefault();
+      const field = document.getElementById("message");
+      const text = field.value.trim();
+      if (text && socket?.connected) {
+        socket.emit("chat message", text);
+        field.value = "";
+      }
+    });
+  </script>
+</body>
+</html>
